@@ -1,0 +1,18 @@
+{
+    "paths": {
+      "aml_data": ".", 
+      "model_to_load": "/path/to/model_you_want_to_load (e.g for inference or fine-tuning)",
+      "model_to_save": "/path/to/model_save_location (where you want to store the model you are going to train)"
+    },
+    "wandb": {
+      "api_key": "ce5676f856caf561584c75f8175f6967876f1c77",
+      "project_name": "project_name",
+      "entity": "ML_Graph",
+      "name": "experiment_name"
+    },
+
+    "features": {
+      "edge_features": ["Timestamp", "Sent Currency", "Received Currency", "Payment Format"],
+      "full_edge_feat_for_referece": ["Timestamp","Amount Sent", "Sent Currency", "Amount Received", "Received Currency", "Payment Format"]
+    }
+  }
