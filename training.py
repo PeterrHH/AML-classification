@@ -8,6 +8,7 @@ from torch_geometric.data import Data, HeteroData
 from torch_geometric.nn import to_hetero, summary
 from torch_geometric.utils import degree
 import wandb
+import numpy as np
 import logging
 
 def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, model, optimizer, loss_fn, args, config, device, val_data, te_data, data_config):
@@ -54,13 +55,17 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
 
             total_loss += float(loss) * pred.numel()
             total_examples += pred.numel()
-
+        loss = total_loss / total_examples if total_examples > 0 else 0
         pred = torch.cat(preds, dim=0).detach().cpu().numpy()
         ground_truth = torch.cat(ground_truths, dim=0).detach().cpu().numpy()
+
         accuracy = accuracy_score(ground_truth, pred)
         f1 = f1_score(ground_truth, pred)
         logging.info(f'--- Epoch: {epoch}---')
+        logging.info(f"Prediction counts: {np.bincount(pred)}")
+        logging.info(f"Ground truth counts: {np.bincount(ground_truth)}")
         wandb.log({"f1/train": f1}, step=epoch)
+        logging.info(f'train loss: {loss:.4f}')
         logging.info(f'Train F1: {f1:.4f}')
 
         #evaluate
@@ -69,6 +74,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
 
 
         wandb.log({
+            "total_loss": loss,
             "f1/validation": val_f1,
             "accuracy/validation": val_accuracy,
             "precision/validation": val_precision,

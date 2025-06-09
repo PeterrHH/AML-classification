@@ -138,9 +138,9 @@ def evaluate_homo(loader, inds, model, data, device, args):
     pred = torch.cat(preds, dim=0).cpu().numpy()
     ground_truth = torch.cat(ground_truths, dim=0).cpu().numpy()
     accuracy = accuracy_score(ground_truth, pred)
-    f1 = f1_score(ground_truth, pred, zero_division=0)
-    precision = precision_score(ground_truth, pred, zero_division=0)
-    recall = recall_score(ground_truth, pred, zero_division=0)
+    f1 = f1_score(ground_truth, pred)
+    precision = precision_score(ground_truth, pred)
+    recall = recall_score(ground_truth, pred)
 
     return accuracy, f1, precision, recall
 
