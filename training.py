@@ -19,6 +19,13 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
     epochs_since_improvement = 0     
     best_model = None
     best_model_epoch = 0
+    
+    if args.run_local:
+        logging.warning("Running in local mode: test set is re-used from validation set.")
+        te_loader = val_loader
+        te_inds = val_inds
+
+
     for epoch in range(config.epochs):
         total_loss = total_examples = 0
         preds = []
@@ -103,7 +110,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
                 save_model(model, optimizer, epoch, args, data_config,"test")
                 
         if epochs_since_improvement >= patience:            
-            logging.info(f"Early stopping at epoch {epoch} due to no val_accuracy improvement in {patience} epochs.")
+            logging.info(f"Early stopping at epoch {epoch} due to no val f1 improvement in {patience} epochs.")
             break
 
     return model

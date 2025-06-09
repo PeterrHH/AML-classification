@@ -2,3 +2,4 @@ __pycache__/
 wandb/
 logs/
 formatted_transactions.csv
+venv/

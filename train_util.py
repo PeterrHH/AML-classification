@@ -138,9 +138,9 @@ def evaluate_homo(loader, inds, model, data, device, args):
     pred = torch.cat(preds, dim=0).cpu().numpy()
     ground_truth = torch.cat(ground_truths, dim=0).cpu().numpy()
     accuracy = accuracy_score(ground_truth, pred)
-    f1 = f1_score(ground_truth, pred, average = 'micro')
-    precision = precision_score(ground_truth, pred, average='micro')
-    recall = recall_score(ground_truth, pred, average='micro')
+    f1 = f1_score(ground_truth, pred, zero_division=0)
+    precision = precision_score(ground_truth, pred, zero_division=0)
+    recall = recall_score(ground_truth, pred, zero_division=0)
 
     return accuracy, f1, precision, recall
 
@@ -189,7 +189,7 @@ def evaluate_hetero(loader, inds, model, data, device, args):
     pred = torch.cat(preds, dim=0).cpu().numpy()
     ground_truth = torch.cat(ground_truths, dim=0).cpu().numpy()
     accuracy = accuracy_score(ground_truth, pred)
-    f1 = f1_score(ground_truth, pred, average = 'micro')
+    f1 = f1_score(ground_truth, pred, zero_division=0)
 
     return accuracy, f1
 
