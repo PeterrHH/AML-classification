@@ -65,9 +65,10 @@ class GraphData(Data):
         num_nodes: int = None,
         timestamps: OptTensor = None,
         node_timestamps: OptTensor = None,
+        ppr_index: dict = None,
         **kwargs
         ):
-        super().__init__(x, edge_index, edge_attr, y, pos, **kwargs)
+        super().__init__(x, edge_index, edge_attr, y, pos, ppr_index, **kwargs)
         self.readout = readout
         self.loss_fn = 'ce'
         self.num_nodes = int(self.x.shape[0])
@@ -78,6 +79,7 @@ class GraphData(Data):
             self.timestamps = edge_attr[:,0].clone()
         else:
             self.timestamps = None
+        self.ppr_index = ppr_index
 
     def add_ports(self):
         '''Adds port numberings to the edge features'''

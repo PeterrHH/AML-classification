@@ -6,6 +6,7 @@ import itertools
 from data_util import GraphData, HeteroData, z_norm, create_hetero_obj
 import matplotlib.pyplot as plt
 from torch_geometric.utils import to_dense_adj
+from ppr_aggregator import build_split_ppr
 
 def visualise(tr_edge_index):
     # Convert to dense adjacency matrix (counts edges between nodes)
@@ -132,10 +133,20 @@ def get_data(args, data_config):
     # visualise(tr_edge_index)
     logging.info(f"Total train samples: {tr_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
             f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0][:5]}")
-            
-    tr_data = GraphData (x=tr_x,  y=tr_y,  edge_index=tr_edge_index,  edge_attr=tr_edge_attr,  timestamps=tr_edge_times )
-    val_data = GraphData(x=val_x, y=val_y, edge_index=val_edge_index, edge_attr=val_edge_attr, timestamps=val_edge_times)
-    te_data = GraphData (x=te_x,  y=te_y,  edge_index=te_edge_index,  edge_attr=te_edge_attr,  timestamps=te_edge_times )
+    
+    # tr_ppr, tr_x_remap, tr_edge_index_remap, tr_nodes = build_split_ppr(tr_edge_index, x)
+    # val_ppr, val_x_remap, val_edge_index_remap, val_nodes = build_split_ppr(val_edge_index, x)
+    # te_ppr, te_x_remap, te_edge_index_remap, te_nodes = build_split_ppr(te_edge_index, x)
+   
+    tr_data = GraphData (x=tr_x,  y=tr_y,  edge_index=tr_edge_index,  edge_attr=tr_edge_attr,  timestamps=tr_edge_times 
+                         # ppr_index=tr_ppr 
+                        )
+    val_data = GraphData(x=val_x, y=val_y, edge_index=val_edge_index, edge_attr=val_edge_attr, timestamps=val_edge_times
+                         # ppr_index=val_ppr
+                         )
+    te_data = GraphData (x=te_x,  y=te_y,  edge_index=te_edge_index,  edge_attr=te_edge_attr,  timestamps=te_edge_times
+                         # ppr_index=te_ppr 
+                         )
 
     #Adding ports and time-deltas if applicable
     if args.ports:
@@ -468,7 +479,9 @@ def get_data_local(args, data_config, day_limit = 3):
     val_edge_index, val_edge_attr, val_y, val_edge_times = edge_index[:,e_val], edge_attr[e_val], y[e_val], timestamps[e_val]
     te_edge_index,  te_edge_attr,  te_y,  te_edge_times  = edge_index,          edge_attr,        y,        timestamps
     
-
+    tr_ppr, tr_x_remap, tr_edge_index_remap, tr_nodes = build_split_ppr(tr_edge_index, x)
+    val_ppr, val_x_remap, val_edge_index_remap, val_nodes = build_split_ppr(val_edge_index, x)
+    te_ppr, te_x_remap, te_edge_index_remap, te_nodes = build_split_ppr(te_edge_index, x)
     
     logging.info(f"--- Train: Node Feature {tr_x.shape} Edge Attr: {tr_edge_attr.shape} Edge Feature Shape: {tr_edge_attr.shape} Y: {tr_y.shape}")
     logging.info(f"--- Eval: Node Feature {val_x.shape} Edge Attr: {val_edge_attr.shape} Edge Feature Shape: {val_edge_attr.shape} Y: {val_y.shape}")
@@ -479,9 +492,9 @@ def get_data_local(args, data_config, day_limit = 3):
     logging.info(f"Total train samples: {tr_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
             f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0][:5]}")
             
-    tr_data = GraphData (x=tr_x,  y=tr_y,  edge_index=tr_edge_index,  edge_attr=tr_edge_attr,  timestamps=tr_edge_times )
-    val_data = GraphData(x=val_x, y=val_y, edge_index=val_edge_index, edge_attr=val_edge_attr, timestamps=val_edge_times)
-    te_data = GraphData (x=te_x,  y=te_y,  edge_index=te_edge_index,  edge_attr=te_edge_attr,  timestamps=te_edge_times )
+    tr_data = GraphData (x=tr_x_remap,  y=tr_y,  edge_index=tr_edge_index_remap,  edge_attr=tr_edge_attr, timestamps=tr_edge_times, ppr_index=tr_ppr )
+    val_data = GraphData(x=val_x_remap, y=val_y, edge_index=val_edge_index_remap, edge_attr=val_edge_attr, timestamps=val_edge_times, ppr_index=val_ppr)
+    te_data = GraphData (x=te_x_remap,  y=te_y,  edge_index=te_edge_index_remap,  edge_attr=te_edge_attr,  timestamps=te_edge_times, ppr_index=te_ppr )
 
     #Adding ports and time-deltas if applicable
     if args.ports:
