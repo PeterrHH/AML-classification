@@ -263,7 +263,7 @@ def train_gnn(tr_data, val_data, te_data, tr_inds, val_inds, te_inds, args, data
 
     #get the model
     sample_batch = next(iter(tr_loader))
-    model = get_model(sample_batch, config, args)
+    model = get_model(sample_batch, config, args, tr_data)
 
     if args.reverse_mp:
         model = to_hetero(model, te_data.metadata(), aggr='mean')

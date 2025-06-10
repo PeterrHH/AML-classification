@@ -136,19 +136,13 @@ def get_data(args, data_config, run_local=False):
     logging.info(f"Total train samples: {tr_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
             f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0][:5]}")
     
-    # tr_ppr, tr_x_remap, tr_edge_index_remap, tr_nodes = build_split_ppr(tr_edge_index, x)
-    # val_ppr, val_x_remap, val_edge_index_remap, val_nodes = build_split_ppr(val_edge_index, x)
-    # te_ppr, te_x_remap, te_edge_index_remap, te_nodes = build_split_ppr(te_edge_index, x)
+    tr_ppr, tr_x_remap, tr_edge_index_remap, tr_nodes = build_split_ppr(tr_edge_index, x)
+    val_ppr, val_x_remap, val_edge_index_remap, val_nodes = build_split_ppr(val_edge_index, x)
+    te_ppr, te_x_remap, te_edge_index_remap, te_nodes = build_split_ppr(te_edge_index, x)
    
-    tr_data = GraphData (x=tr_x,  y=tr_y,  edge_index=tr_edge_index,  edge_attr=tr_edge_attr,  timestamps=tr_edge_times 
-                         # ppr_index=tr_ppr 
-                        )
-    val_data = GraphData(x=val_x, y=val_y, edge_index=val_edge_index, edge_attr=val_edge_attr, timestamps=val_edge_times
-                         # ppr_index=val_ppr
-                         )
-    te_data = GraphData (x=te_x,  y=te_y,  edge_index=te_edge_index,  edge_attr=te_edge_attr,  timestamps=te_edge_times
-                         # ppr_index=te_ppr 
-                         )
+    tr_data = GraphData (x=tr_x_remap,  y=tr_y,  edge_index=tr_edge_index_remap,  edge_attr=tr_edge_attr,  timestamps=tr_edge_times, ppr_index=tr_ppr)
+    val_data = GraphData(x=val_x_remap, y=val_y, edge_index=val_edge_index_remap, edge_attr=val_edge_attr, timestamps=val_edge_times, ppr_index=val_ppr)
+    te_data = GraphData (x=te_x_remap,  y=te_y,  edge_index=te_edge_index_remap,  edge_attr=te_edge_attr,  timestamps=te_edge_times, ppr_index=te_ppr)
 
     #Adding ports and time-deltas if applicable
     if args.ports:
@@ -497,6 +491,10 @@ def get_data_local(args, data_config, day_limit = 3):
     tr_data = GraphData (x=tr_x_remap,  y=tr_y,  edge_index=tr_edge_index_remap,  edge_attr=tr_edge_attr, timestamps=tr_edge_times, ppr_index=tr_ppr )
     val_data = GraphData(x=val_x_remap, y=val_y, edge_index=val_edge_index_remap, edge_attr=val_edge_attr, timestamps=val_edge_times, ppr_index=val_ppr)
     te_data = GraphData (x=te_x_remap,  y=te_y,  edge_index=te_edge_index_remap,  edge_attr=te_edge_attr,  timestamps=te_edge_times, ppr_index=te_ppr )
+
+    # object.__setattr__(tr_data, 'ppr_index', tr_ppr)
+    # object.__setattr__(val_data, 'ppr_index', val_ppr)
+    # object.__setattr__(te_data, 'ppr_index', te_ppr)
 
     #Adding ports and time-deltas if applicable
     if args.ports:
