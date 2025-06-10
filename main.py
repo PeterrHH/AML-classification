@@ -1,7 +1,7 @@
 import time
 import logging
 from util import create_parser, set_seed, logger_setup
-from data_loading import get_data, get_data_xgboost, get_data_by_day, get_data_local
+from data_loading import get_data, get_data_xgboost, get_data_by_day
 from training import train_gnn, train_xgboost
 from inference import infer_gnn
 import json
@@ -29,9 +29,9 @@ def main():
         X_train, y_train, X_val, y_val, X_test, y_test = get_data_xgboost(args, data_config)
     else:
         if args.run_local:
-            tr_data, val_data, te_data, tr_inds, val_inds, te_inds = get_data_local(args, data_config)
+            tr_data, val_data, te_data, tr_inds, val_inds, te_inds = get_data(args, data_config,run_local=True)
         else:
-            tr_data, val_data, te_data, tr_inds, val_inds, te_inds = get_data(args, data_config)
+            tr_data, val_data, te_data, tr_inds, val_inds, te_inds = get_data(args, data_config, run_local=False)
 
 
     # get_data_local(args, data_config)

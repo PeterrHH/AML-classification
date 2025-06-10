@@ -22,7 +22,7 @@ def visualise(tr_edge_index):
 
 
 
-def get_data(args, data_config):
+def get_data(args, data_config, run_local=False):
     '''Loads the AML transaction data.
     
     1. The data is loaded from the csv and the necessary features are chosen.
@@ -31,8 +31,10 @@ def get_data(args, data_config):
     '''
     logging.info('Loading for Graph')
 
-    transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions.csv" #replace this with your path to the respective AML data objects
-
+    if run_local:
+        transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions_small.csv" #replace this with your path to the respective AML data objects
+    else:
+        transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions.csv" #replace this with your path to the respective AML data objects
     df_edges = pd.read_csv(transaction_file)
 
     logging.info(f'Available Edge Features: {df_edges.columns.tolist()}')
