@@ -4,6 +4,7 @@ from torch import Tensor
 import torch_geometric.nn.aggr as pyg_aggr
 import heapq
 from collections import defaultdict
+import random
 
 
 class TopKPPRAggregation(Aggregation):
@@ -116,13 +117,19 @@ def build_split_ppr(edge_index, x):
     remapped_src = torch.tensor([id_map[n.item()] for n in edge_index[0]])
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
-    
-    ppr_index = build_ppr_index(
+    print(f"Before doing build ppr idx rmap edge idx {remapped_edge_index.shape} num nodes {len(used_nodes)}")
+    # ppr_index = build_ppr_index(
+    #     edge_index=remapped_edge_index,
+    #     num_nodes=len(used_nodes),
+    #     alpha=0.15,
+    #     eps=1e-4,
+    #     topk=2
+    # )
+    ppr_index = build_ppr_index_monte_carlo(
         edge_index=remapped_edge_index,
         num_nodes=len(used_nodes),
         alpha=0.15,
-        eps=1e-4,
-        topk=32
+        topk=2
     )
     
     # remap x to used nodes
@@ -131,12 +138,51 @@ def build_split_ppr(edge_index, x):
     return ppr_index, x_remapped, remapped_edge_index, used_nodes
 
 
+
+def monte_carlo_ppr(seed, nbrs, alpha=0.15, num_walks=50, max_steps=20, topk=20):
+    count = defaultdict(int)
+    for _ in range(num_walks):
+        node = seed
+        for _ in range(max_steps):
+            if random.random() < alpha:
+                break
+            neighbors = nbrs[node]
+            if not neighbors:
+                break
+            node = random.choice(neighbors)
+        count[node] += 1
+    total = sum(count.values())
+    return sorted([(n, c / total) for n, c in count.items()], key=lambda x: -x[1])[:topk]
+
+
 def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50):
     ppr_index = {}
     for seed in range(num_nodes):
+        print(f"---Building PPR index for seed {seed}")
         ppr_index[seed] = approx_ppr_push(
             seed, edge_index, num_nodes, alpha=alpha, eps=eps, topk=topk
         )
+    return ppr_index
+
+
+def build_ppr_index_monte_carlo(edge_index, num_nodes, alpha=0.15, topk=50):
+    print(f"Using Monte Carlo PPR for {num_nodes} nodes...")
+
+    # Step 1: Build adjacency list
+    nbrs = [[] for _ in range(num_nodes)]
+    src, dst = edge_index
+    for u, v in zip(src.tolist(), dst.tolist()):
+        nbrs[u].append(v)
+        nbrs[v].append(u)
+
+    # Step 2: Build PPR index only for used nodes
+    ppr_index = {}
+    for seed in range(num_nodes):
+        print(f"---Building MC PPR index for seed {seed}")
+        ppr_index[seed] = monte_carlo_ppr(
+            seed, nbrs, alpha=alpha, num_walks=20, max_steps=20, topk=topk
+        )
+
     return ppr_index
 
 # 3) “Register” new aggregation under the name “FrequencyAggregation”
