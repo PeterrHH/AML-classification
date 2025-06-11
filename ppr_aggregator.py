@@ -18,6 +18,7 @@ class TopKPPRAggregation(Aggregation):
                 dim_size: int = None,
                 dim: int = 0) -> Tensor:
         # We'll ignore x/index since we do a custom gather:
+        print('Aggregation w/ TopKPPR started')
         N, F = dim_size, x.size(1)  # number of nodes, feat‐dim
         out = x.new_zeros((N, F))
 
@@ -30,6 +31,7 @@ class TopKPPRAggregation(Aggregation):
             nbr_feats = x[nbrs]        # [K, F]
             w = x.new_tensor(scores).unsqueeze(1)  # [K,1]
             out[i] = (nbr_feats * w).sum(dim=0)    # [F]
+        print('Aggregation w/ TopKPPR ended, out: ', out)
         return out
 
 
@@ -38,7 +40,7 @@ def approx_ppr_push(seed: int,
                     num_nodes: int,
                     alpha: float = 0.15,
                     eps: float = 1e-4,
-                    topk: int = 50):
+                    topk: int = 16):
     """
     Approximate the Personalized PageRank vector for `seed` using 
     the push algorithm.  Returns the top-k (node, ppr_score) pairs.
@@ -117,6 +119,7 @@ def build_split_ppr(edge_index, x):
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
     
+    print('build_split_ppr: remapped edge indexes sent to build_ppr_index')
     ppr_index = build_ppr_index(
         edge_index=remapped_edge_index,
         num_nodes=len(used_nodes),
@@ -124,15 +127,16 @@ def build_split_ppr(edge_index, x):
         eps=1e-4,
         topk=32
     )
-    
+    print('build_ppr_index: ppr_index computed')
     # remap x to used nodes
     x_remapped = x[used_nodes]
     
     return ppr_index, x_remapped, remapped_edge_index, used_nodes
 
 
-def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50):
+def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=16):
     ppr_index = {}
+    print('build_ppr_index: seed-loop started, sending to approx_ppr_push')
     for seed in range(num_nodes):
         ppr_index[seed] = approx_ppr_push(
             seed, edge_index, num_nodes, alpha=alpha, eps=eps, topk=topk

@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 def save_filtered_days(input_csv, output_csv, days_to_keep):
     """
@@ -25,11 +26,43 @@ def save_filtered_days(input_csv, output_csv, days_to_keep):
     filtered_df.to_csv(output_csv, index=False)
     print(f"Filtered CSV saved to {output_csv} with {len(filtered_df)} transactions from days {days_to_keep}")
 
+
+def save_5h_window_one_csv(
+    input_csv: str,
+    output_csv: str,
+    window_start_hour: int = 10,
+    window_length_hours: int = 5,
+):
+    df = pd.read_csv(input_csv)
+    # 1) normalize
+    df['Timestamp'] = df['Timestamp'] - df['Timestamp'].min()
+    # 2) compute Hour
+    df['Hour'] = (df['Timestamp'] // 3600).astype(int)
+    # 3) filter
+    lo = window_start_hour
+    hi = window_start_hour + window_length_hours
+    window_df = df[(df['Hour'] >= lo) & (df['Hour'] < hi)].copy()
+    if window_df.empty:
+        raise ValueError(f"No data in hours [{lo}, {hi})")
+
+    # ensure directory exists
+    os.makedirs(os.path.dirname(output_csv) or '.', exist_ok=True)
+    window_df.to_csv(output_csv, index=False)
+    print(f"→ Wrote {len(window_df)} transactions (hours {lo}–{hi-1}) to {output_csv}")
+
+
 # Example usage:
 if __name__ == "__main__":
     # Adjust the input and output paths as necessary
-    save_filtered_days(
-        input_csv="./data/formatted_transactions.csv",
-        output_csv="./data/formatted_transactions_small.csv",
-        days_to_keep=[3, 4, 5]
+    # save_filtered_days(
+    #     input_csv="./data/formatted_transactions.csv",
+    #     output_csv="./data/formatted_transactions_small.csv",
+    #     days_to_keep=[3, 4, 5]
+    # )
+    # FOR QUICK TESTING
+    save_5h_window_one_csv(
+        input_csv="./data/formatted_transactions_small.csv",
+        output_csv="./data/formatted_transactions_5_hrs.csv",
+        window_start_hour = 10,
+        window_length_hours = 5,
     )
