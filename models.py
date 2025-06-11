@@ -117,12 +117,12 @@ class PNA(torch.nn.Module):
         self.final_dropout = final_dropout
 
         if ppr_index is None:
-            raise ValueError("PNA requires a ppr_index when you include 'ppr' in aggregators")
-        ppr_agg = TopKPPRAggregation(ppr_index)
+            raise ValueError("PNA requires a ppr_index when you include 'pprTopKPPRAggregation' in aggregators")
+        aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
 
-        aggregators = ['mean', 'min', 'max', 'std', 'ppr']
+        aggregators = ['mean', 'min', 'max', 'std', 'TopKPPRAggregation']
         scalers = ['identity', 'amplification', 'attenuation']
-
+        
         self.node_emb = nn.Linear(num_features, n_hidden)
         self.edge_emb = nn.Linear(edge_dim, n_hidden)
 
@@ -135,7 +135,7 @@ class PNA(torch.nn.Module):
                            aggregators=aggregators, scalers=scalers, deg=deg,
                            edge_dim=n_hidden, towers=5, pre_layers=1, post_layers=1,
                            divide_input=False,
-                           aggr_kwargs = {'ppr': ppr_agg})
+                           aggr_kwargs = aggr_kwargs)
             if self.edge_updates: self.emlps.append(nn.Sequential(
                 nn.Linear(3 * self.n_hidden, self.n_hidden),
                 nn.ReLU(),
