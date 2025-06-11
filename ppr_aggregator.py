@@ -19,8 +19,10 @@ class TopKPPRAggregation(Aggregation):
                 dim_size: int = None,
                 dim: int = 0) -> Tensor:
         # We'll ignore x/index since we do a custom gather:
+        print(f"TopKPPRAggregation: dim_size={dim_size}, x.shape={x.shape}, index.shape={index.shape}")
+        print(f"self ppr {len(self.ppr_index)}")
         N, F = dim_size, x.size(1)  # number of nodes, feat‐dim
-        out = x.new_zeros((N, F))
+        out = x.new_zeros((N, F)) 
 
         # For each target node i, do weighted sum over its top-K neighbours:
         for i, nbr_scores in self.ppr_index.items():
@@ -117,7 +119,7 @@ def build_split_ppr(edge_index, x):
     remapped_src = torch.tensor([id_map[n.item()] for n in edge_index[0]])
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
-    print(f"Before doing build ppr idx rmap edge idx {remapped_edge_index.shape} num nodes {len(used_nodes)}")
+    
     # ppr_index = build_ppr_index(
     #     edge_index=remapped_edge_index,
     #     num_nodes=len(used_nodes),
@@ -178,7 +180,6 @@ def build_ppr_index_monte_carlo(edge_index, num_nodes, alpha=0.15, topk=50):
     # Step 2: Build PPR index only for used nodes
     ppr_index = {}
     for seed in range(num_nodes):
-        print(f"---Building MC PPR index for seed {seed}")
         ppr_index[seed] = monte_carlo_ppr(
             seed, nbrs, alpha=alpha, num_walks=20, max_steps=20, topk=topk
         )

@@ -135,12 +135,13 @@ def get_data(args, data_config, run_local=False):
     # visualise(tr_edge_index)
     # logging.info(f"Total train samples: {tr_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
     #         f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0][:5]}")
-    logging.info("Builfing split ppr for train")
+    
     tr_ppr, tr_x_remap, tr_edge_index_remap, tr_nodes = build_split_ppr(tr_edge_index, x)
-    logging.info(f"Builfing split ppr for val")
+    logging.info(f"Built split ppr for train, tr_ppr {len(tr_ppr)}")
     val_ppr, val_x_remap, val_edge_index_remap, val_nodes = build_split_ppr(val_edge_index, x)
-    logging.info(f"Builfing split ppr for test")
+    logging.info(f"Built split ppr for val, val_ppr {len(tr_ppr)}")
     te_ppr, te_x_remap, te_edge_index_remap, te_nodes = build_split_ppr(te_edge_index, x)
+    logging.info(f"Built split ppr for test, te_ppr {len(te_ppr)}")
    
     tr_data = GraphData (x=tr_x_remap,  y=tr_y,  edge_index=tr_edge_index_remap,  edge_attr=tr_edge_attr,  timestamps=tr_edge_times, ppr_index=tr_ppr)
     val_data = GraphData(x=val_x_remap, y=val_y, edge_index=val_edge_index_remap, edge_attr=val_edge_attr, timestamps=val_edge_times, ppr_index=val_ppr)

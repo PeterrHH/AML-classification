@@ -1,4 +1,5 @@
 from ppr_aggregator import TopKPPRAggregation
+from torch_geometric.nn.aggr import MeanAggregation, MinAggregation, MaxAggregation, StdAggregation
 import torch.nn as nn
 from torch_geometric.nn import GINEConv, BatchNorm, Linear, GATConv, PNAConv, RGCNConv
 import torch.nn.functional as F
@@ -120,7 +121,17 @@ class PNA(torch.nn.Module):
             raise ValueError("PNA requires a ppr_index when you include 'pprTopKPPRAggregation' in aggregators")
         aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
 
-        aggregators = ['mean', 'min', 'max', 'std', 'TopKPPRAggregation']
+        # aggregators = ['mean', 'min', 'max', 'std', 'TopKPPRAggregation']
+        ppr_agg = TopKPPRAggregation(ppr_index)
+
+        # 2) mix it in with the built-in ones
+        aggregators = [
+            MeanAggregation(), 
+            MinAggregation(), 
+            MaxAggregation(), 
+            StdAggregation(), 
+            ppr_agg,
+        ]
         scalers = ['identity', 'amplification', 'attenuation']
         
         self.node_emb = nn.Linear(num_features, n_hidden)
