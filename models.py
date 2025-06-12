@@ -181,6 +181,7 @@ class PNA(torch.nn.Module):
         x = torch.cat((x, edge_attr.view(-1, edge_attr.shape[1])), 1)
         logging.debug(f"x.shape = {x.shape}")
         out = x
+
         return self.mlp(out)
     
 class RGCN(nn.Module):

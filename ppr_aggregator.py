@@ -24,12 +24,14 @@ class TopKPPRAggregation(Aggregation):
                 dim_size: int = None,
                 dim: int = 0) -> Tensor:
         
-        print(f"TopKPPRAggregation: dim_size={dim_size}, x.shape={self.global_x.shape}, index.shape={index.shape}")
+        print(f"TopKPPRAggregation: dim_size={dim_size}, index.shape={index.shape}")
+        print(f"Gloabl x {self.global_x.shape}, x shape {x.shape}")
         print(f"self ppr {len(self.ppr_index)}")
-
-        X = self.global_x       # [N, F]
-        N, F = X.size()
-        out = X.new_zeros((N, F))
+        X = x
+        # X = self.global_x       # [N, F]
+        N = self.global_x.size(0) 
+        _, T, F = X.size()
+        out = X.new_zeros((N, T, F))
 
         # For each *global* seed in your PPR dict...
         for g_u, nbrs_and_scores in self.ppr_index.items():
@@ -42,9 +44,12 @@ class TopKPPRAggregation(Aggregation):
             if not local:
                 continue
             loc_idxs, ws = zip(*local)
-            feats = X[list(loc_idxs)]          # [k, F]
+            feats = X[list(loc_idxs)]          # [k, T, F]
             wts  = X.new_tensor(ws).unsqueeze(1)  # [k,1]
-            out[u] = (feats * wts).sum(dim=0)
+            # Modify wts to be [k,1,1] for broadcasting with feats [k,T,F]
+            # (feats * wts_broadcastable) will have shape [k,T,F]
+            # .sum(dim=0) will sum over k, resulting in shape [T,F]
+            out[u,:,:] = (feats * wts.unsqueeze(2)).sum(dim=0) 
             
         print('out shape of TopKPPRAggregation: ', out.shape)
         return out
