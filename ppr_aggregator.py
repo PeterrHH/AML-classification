@@ -13,6 +13,7 @@ class TopKPPRAggregation(Aggregation):
         self.ppr_index = ppr_index
         self.global_x  = None
         self.g2l: dict[int,int] = {} 
+        
 
     def set_mapping(self, g2l: dict[int,int]):
         self.g2l = g2l
@@ -25,8 +26,7 @@ class TopKPPRAggregation(Aggregation):
                 dim: int = 0) -> Tensor:
         
         print(f"TopKPPRAggregation: dim_size={dim_size}, index.shape={index.shape}")
-        print(f"Gloabl x {self.global_x.shape}, x shape {x.shape}")
-        print(f"self ppr {len(self.ppr_index)}")
+        print(f"Gloabl x {self.global_x.shape}, x shape {x.shape} self ppr {len(self.ppr_index)}")
         X = x
         # X = self.global_x       # [N, F]
         N = self.global_x.size(0) 

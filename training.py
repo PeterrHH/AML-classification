@@ -27,7 +27,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
         te_loader = val_loader
         te_inds = val_inds
 
-
+    logging.info(f"Number of batches in training loader: {len(tr_loader)}")
     for epoch in range(config.epochs):
         total_loss = total_examples = 0
         preds = []
@@ -146,10 +146,17 @@ def train_hetero(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, m
         for batch in tqdm.tqdm(tr_loader, disable=not args.tqdm):
             optimizer.zero_grad()
             #select the seed edges from which the batch was created
-            inds = tr_inds.detach().cpu()
-            batch_edge_inds = inds[batch['node', 'to', 'node'].input_id.detach().cpu()]
-            batch_edge_ids = tr_loader.data['node', 'to', 'node'].edge_attr.detach().cpu()[batch_edge_inds, 0]
-            mask = torch.isin(batch['node', 'to', 'node'].edge_attr[:, 0].detach().cpu(), batch_edge_ids)
+
+            # inds = tr_inds.detach().cpu()
+            # batch_edge_inds = inds[batch['node', 'to', 'node'].input_id.detach().cpu()]
+            # batch_edge_ids = tr_loader.data['node', 'to', 'node'].edge_attr.detach().cpu()[batch_edge_inds, 0]
+            # mask = torch.isin(batch['node', 'to', 'node'].edge_attr[:, 0].detach().cpu(), batch_edge_ids)
+
+            # OPTMIZED FOR GPU
+            inds = tr_inds
+            batch_edge_inds = inds[batch.input_id]
+            batch_edge_ids = tr_loader.data.edge_attr[batch_edge_inds, 0].to(device)
+            mask = torch.isin(batch.edge_attr[:, 0], batch_edge_ids)
             
             #remove the unique edge id from the edge features, as it's no longer needed
             batch['node', 'to', 'node'].edge_attr = batch['node', 'to', 'node'].edge_attr[:, 1:]
