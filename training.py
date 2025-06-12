@@ -1,6 +1,7 @@
 import torch
 import tqdm
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+from ppr_aggregator import TopKPPRAggregation
 from train_util import AddEgoIds, extract_param, add_arange_ids, get_loaders, evaluate_homo, evaluate_hetero, save_model, load_model
 from models import GINe, PNA, GATe, RGCN
 from xgboost import XGBClassifier
@@ -43,6 +44,18 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
             batch.edge_attr = batch.edge_attr[:, 1:]
 
             batch.to(device)
+
+            # 1) Build a global→local map:
+            g2l = { int(g): i for i, g in enumerate(batch.n_id) }
+            x0  = model.node_emb(batch.x)
+
+            for conv in model.convs:
+                for aggr in conv.aggr_module.aggr.aggrs:
+                    if isinstance(aggr, TopKPPRAggregation):
+                        aggr.global_x = x0
+                        aggr.g2l      = g2l
+
+
             out = model(batch.x, batch.edge_index, batch.edge_attr)
             pred = out[mask]
             ground_truth = batch.y[mask]
@@ -141,6 +154,17 @@ def train_hetero(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, m
             batch['node', 'rev_to', 'node'].edge_attr = batch['node', 'rev_to', 'node'].edge_attr[:, 1:]
 
             batch.to(device)
+
+            # 1) Build a global→local map:
+            g2l = { int(g): i for i, g in enumerate(batch.n_id) }
+            x0  = model.node_emb(batch.x)
+
+            for conv in model.convs:
+                for aggr in conv.aggr_module.aggr.aggrs:
+                    if isinstance(aggr, TopKPPRAggregation):
+                        aggr.global_x = x0
+                        aggr.g2l      = g2l
+
             out = model(batch.x_dict, batch.edge_index_dict, batch.edge_attr_dict)
             out = out[('node', 'to', 'node')]
             pred = out[mask]

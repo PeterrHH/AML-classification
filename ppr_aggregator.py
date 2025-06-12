@@ -11,28 +11,42 @@ class TopKPPRAggregation(Aggregation):
     def __init__(self, ppr_index: dict):
         super().__init__()
         self.ppr_index = ppr_index
+        self.global_x  = None
+        self.g2l: dict[int,int] = {} 
+
+    def set_mapping(self, g2l: dict[int,int]):
+        self.g2l = g2l
 
     def forward(self,
-                x: Tensor,           # all node embeddings [num_messages, feat_dim]
-                index: Tensor,       # message→ destination indices
+                x: Tensor,
+                index: Tensor,
                 ptr: Tensor = None,
                 dim_size: int = None,
                 dim: int = 0) -> Tensor:
-        # We'll ignore x/index since we do a custom gather:
-        print(f"TopKPPRAggregation: dim_size={dim_size}, x.shape={x.shape}, index.shape={index.shape}")
+        
+        print(f"TopKPPRAggregation: dim_size={dim_size}, x.shape={self.global_x.shape}, index.shape={index.shape}")
         print(f"self ppr {len(self.ppr_index)}")
-        N, F = dim_size, x.size(1)  # number of nodes, feat‐dim
-        out = x.new_zeros((N, F)) 
 
-        # For each target node i, do weighted sum over its top-K neighbours:
-        for i, nbr_scores in self.ppr_index.items():
-            if not nbr_scores:
+        X = self.global_x       # [N, F]
+        N, F = X.size()
+        out = X.new_zeros((N, F))
+
+        # For each *global* seed in your PPR dict...
+        for g_u, nbrs_and_scores in self.ppr_index.items():
+            if g_u not in self.g2l:
                 continue
-            # unpack neighbors & scores
-            nbrs, scores = zip(*nbr_scores)
-            nbr_feats = x[nbrs]        # [K, F]
-            w = x.new_tensor(scores).unsqueeze(1)  # [K,1]
-            out[i] = (nbr_feats * w).sum(dim=0)    # [F]
+            u = self.g2l[g_u]
+            # nbrs, scores = zip(*nbrs_and_scores)
+            # keep only those neighbors in this batch:
+            local = [(self.g2l[g_v], w) for (g_v, w) in nbrs_and_scores if g_v in self.g2l]
+            if not local:
+                continue
+            loc_idxs, ws = zip(*local)
+            feats = X[list(loc_idxs)]          # [k, F]
+            wts  = X.new_tensor(ws).unsqueeze(1)  # [k,1]
+            out[u] = (feats * wts).sum(dim=0)
+            
+        print('out shape of TopKPPRAggregation: ', out.shape)
         return out
 
 
@@ -72,7 +86,6 @@ def approx_ppr_push(seed: int,
     r[seed] = 1.0
 
     # 3) While there exists u with r[u] > eps * deg(u):
-    #    we use a simple queue; in practice you'd use a priority or worklist.
     queue = [seed]
     while queue:
         u = queue.pop()
@@ -186,8 +199,8 @@ def build_ppr_index_monte_carlo(edge_index, num_nodes, alpha=0.15, topk=50):
 
     return ppr_index
 
-# 3) “Register” new aggregation under the name “FrequencyAggregation”
-#    so that PyG’s resolver can find it when we pass 'frequency' in PNAConv.
+# 3) “Register” new aggregation under the name TopKPPRAggregation
+#    so that PyG’s resolver can find it when we pass 'TopKPPRAggregation' in PNAConv.
 pyg_aggr.TopKPPRAggregation = TopKPPRAggregation
 
 

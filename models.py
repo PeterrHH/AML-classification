@@ -118,11 +118,11 @@ class PNA(torch.nn.Module):
         self.final_dropout = final_dropout
 
         if ppr_index is None:
-            raise ValueError("PNA requires a ppr_index when you include 'pprTopKPPRAggregation' in aggregators")
+            raise ValueError("PNA requires a ppr_index when you include 'TopKPPRAggregation' in aggregators")
         aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
 
         # aggregators = ['mean', 'min', 'max', 'std', 'TopKPPRAggregation']
-        ppr_agg = TopKPPRAggregation(ppr_index)
+        # ppr_agg = TopKPPRAggregation(ppr_index)
 
         # 2) mix it in with the built-in ones
         aggregators = [
@@ -130,7 +130,7 @@ class PNA(torch.nn.Module):
             MinAggregation(), 
             MaxAggregation(), 
             StdAggregation(), 
-            ppr_agg,
+            TopKPPRAggregation(ppr_index),
         ]
         scalers = ['identity', 'amplification', 'attenuation']
         
@@ -163,6 +163,12 @@ class PNA(torch.nn.Module):
 
         x = self.node_emb(x)
         edge_attr = self.edge_emb(edge_attr)
+
+        # Storing x in the global aggregator storage for easier access
+        for conv, bn in zip(self.convs, self.batch_norms):
+            for aggr in conv.aggr_module.aggr.aggrs:
+                if isinstance(aggr, TopKPPRAggregation):
+                    aggr.global_x = x 
 
         for i in range(self.num_gnn_layers):
             x = (x + F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))) / 2
