@@ -8,12 +8,12 @@ import random
 
 
 class TopKPPRAggregation(Aggregation):
-    def __init__(self, ppr_index: dict):
+    def __init__(self, ppr_index: dict, tower_size = 5):
         super().__init__()
         self.ppr_index = ppr_index
-        self.global_x  = None
+        self.global_x  = torch.zeros((1,1))
         self.g2l: dict[int,int] = {} 
-        
+        self.tower_size = tower_size
 
     def set_mapping(self, g2l: dict[int,int]):
         self.g2l = g2l
@@ -25,13 +25,16 @@ class TopKPPRAggregation(Aggregation):
                 dim_size: int = None,
                 dim: int = 0) -> Tensor:
         
-        print(f"TopKPPRAggregation: dim_size={dim_size}, index.shape={index.shape}")
-        print(f"Gloabl x {self.global_x.shape}, x shape {x.shape} self ppr {len(self.ppr_index)}")
+        print(f"TopKPPRAggregation: x shape {x.shape}, index shape {index.shape}, dim_size {dim_size}, dim {dim}")
+        # print(f"Gloabl x {self.global_x.shape}, x shape {x.shape} self ppr {len(self.ppr_index)}")
         X = x
+        self.global_x = x
         # X = self.global_x       # [N, F]
         N = self.global_x.size(0) 
-        _, T, F = X.size()
-        out = X.new_zeros((N, T, F))
+        F = X.shape[-1]
+        T = self.tower_size
+        # out = X.new_zeros((N, T, F)) # previously for multi-twoer
+        out = X.new_zeros((N, F))  # for single tower
 
         # For each *global* seed in your PPR dict...
         for g_u, nbrs_and_scores in self.ppr_index.items():
@@ -49,7 +52,7 @@ class TopKPPRAggregation(Aggregation):
             # Modify wts to be [k,1,1] for broadcasting with feats [k,T,F]
             # (feats * wts_broadcastable) will have shape [k,T,F]
             # .sum(dim=0) will sum over k, resulting in shape [T,F]
-            out[u,:,:] = (feats * wts.unsqueeze(2)).sum(dim=0) 
+            out[u,:] = (feats * wts.unsqueeze(2)).sum(dim=0) 
             
         print('out shape of TopKPPRAggregation: ', out.shape)
         return out

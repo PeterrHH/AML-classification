@@ -130,7 +130,7 @@ class PNA(torch.nn.Module):
             MinAggregation(), 
             MaxAggregation(), 
             StdAggregation(), 
-            TopKPPRAggregation(ppr_index),
+            # TopKPPRAggregation(ppr_index),
         ]
         scalers = ['identity', 'amplification', 'attenuation']
         
@@ -157,13 +157,20 @@ class PNA(torch.nn.Module):
 
         self.mlp = nn.Sequential(Linear(n_hidden*3, 50), nn.ReLU(), nn.Dropout(self.final_dropout),Linear(50, 25), nn.ReLU(), nn.Dropout(self.final_dropout),
                               Linear(25, n_classes))
+        
+        self.ppr_aggr = TopKPPRAggregation(ppr_index)
+        self.ppr_w     = nn.Parameter(torch.tensor(1.0))
 
     def forward(self, x, edge_index, edge_attr):
         src, dst = edge_index
 
         x = self.node_emb(x)
         edge_attr = self.edge_emb(edge_attr)
+        aggr_emb = self.ppr_aggr(x)
 
+       
+        # Preprocess the input x with the PPR aggregation
+        x = x + self.ppr_w * aggr_emb
         # Storing x in the global aggregator storage for easier access
         for conv, bn in zip(self.convs, self.batch_norms):
             for aggr in conv.aggr_module.aggr.aggrs:
