@@ -1,7 +1,7 @@
 import torch
 import tqdm
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
-from ppr_aggregator import TopKPPRAggregation
+from ppr_aggregator import TopKPPRAggregation, build_ppr_index_monte_carlo
 from train_util import AddEgoIds, extract_param, add_arange_ids, get_loaders, evaluate_homo, evaluate_hetero, save_model, load_model
 from models import GINe, PNA, GATe, RGCN
 from xgboost import XGBClassifier
@@ -46,18 +46,26 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
             batch.to(device)
 
             # 1) Build a global→local map:
-            g2l = { int(g): i for i, g in enumerate(batch.n_id) }
-            x0  = model.node_emb(batch.x)
+            # g2l = { int(g): i for i, g in enumerate(batch.n_id) }
+            # x0  = model.node_emb(batch.x)
+
+            ppr_index = build_ppr_index_monte_carlo(
+                edge_index=batch.edge_index,
+                num_nodes=batch.x.size(0),  # local node count
+                alpha=0.15,
+                topk=10
+            )
 
             for conv in model.convs:
                 for aggr in conv.aggr_module.aggr.aggrs:
                     if isinstance(aggr, TopKPPRAggregation):
-                        aggr.global_x = x0
-                        aggr.g2l      = g2l
+                        aggr.ppr_index = ppr_index
+
 
 
             out = model(batch.x, batch.edge_index, batch.edge_attr)
             print(f"Got an output from PNA of shape: {out.shape}")
+            ### BOTTEL NECK: Loss CALCULATION
             pred = out[mask]
             ground_truth = batch.y[mask]
             preds.append(pred.argmax(dim=-1))

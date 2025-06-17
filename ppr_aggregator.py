@@ -10,48 +10,25 @@ import random
 class TopKPPRAggregation(Aggregation):
     def __init__(self, ppr_index: dict):
         super().__init__()
-        self.ppr_index = ppr_index
-        self.global_x  = None
-        self.g2l: dict[int,int] = {} 
+        self.ppr_index = ppr_index  # Now only batch-local!
+        self.local_x = None         # No more global_x!
+    
+    def forward(self, x: Tensor, index: Tensor, ptr: Tensor = None,
+                dim_size: int = None, dim: int = 0) -> Tensor:
         
+        # x is already batch-local: [num_nodes, time_steps, dim]
+        N = x.size(0)
+        _, T, F = x.size()
+        out = x.new_zeros((N, T, F))
 
-    def set_mapping(self, g2l: dict[int,int]):
-        self.g2l = g2l
-
-    def forward(self,
-                x: Tensor,
-                index: Tensor,
-                ptr: Tensor = None,
-                dim_size: int = None,
-                dim: int = 0) -> Tensor:
-        
-        print(f"TopKPPRAggregation: dim_size={dim_size}, index.shape={index.shape}")
-        print(f"Gloabl x {self.global_x.shape}, x shape {x.shape} self ppr {len(self.ppr_index)}")
-        X = x
-        # X = self.global_x       # [N, F]
-        N = self.global_x.size(0) 
-        _, T, F = X.size()
-        out = X.new_zeros((N, T, F))
-
-        # For each *global* seed in your PPR dict...
-        for g_u, nbrs_and_scores in self.ppr_index.items():
-            if g_u not in self.g2l:
+        for u, neighbors in self.ppr_index.items():  # u is local node id
+            if u >= N:
                 continue
-            u = self.g2l[g_u]
-            # nbrs, scores = zip(*nbrs_and_scores)
-            # keep only those neighbors in this batch:
-            local = [(self.g2l[g_v], w) for (g_v, w) in nbrs_and_scores if g_v in self.g2l]
-            if not local:
-                continue
-            loc_idxs, ws = zip(*local)
-            feats = X[list(loc_idxs)]          # [k, T, F]
-            wts  = X.new_tensor(ws).unsqueeze(1)  # [k,1]
-            # Modify wts to be [k,1,1] for broadcasting with feats [k,T,F]
-            # (feats * wts_broadcastable) will have shape [k,T,F]
-            # .sum(dim=0) will sum over k, resulting in shape [T,F]
-            out[u,:,:] = (feats * wts.unsqueeze(2)).sum(dim=0) 
-            
-        print('out shape of TopKPPRAggregation: ', out.shape)
+            loc_idxs, ws = zip(*neighbors)
+            feats = x[list(loc_idxs)]               # [k, T, F]
+            wts = x.new_tensor(ws).unsqueeze(1).unsqueeze(2)  # [k,1,1]
+            out[u] = (feats * wts).sum(dim=0)
+
         return out
 
 
