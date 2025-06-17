@@ -5,6 +5,10 @@ import torch_geometric.nn.aggr as pyg_aggr
 import heapq
 from collections import defaultdict
 import random
+from tqdm import tqdm
+from multiprocessing import Pool, cpu_count
+from functools import partial
+import numpy as np
 
 
 class TopKPPRAggregation(Aggregation):
@@ -48,7 +52,7 @@ def approx_ppr_push(seed: int,
 
     Args:
       seed    : int, the node whose PPR we want.
-      edge_index: [2, E] LongTensor of your graph’s edges (undirected or directed).
+      edge_index: [2, E] LongTensor of your graph's edges (undirected or directed).
       num_nodes : int, number of nodes N.
       alpha   : teleport probability (≈0.15).
       eps     : tolerance threshold.
@@ -120,19 +124,19 @@ def build_split_ppr(edge_index, x):
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
     
-    # ppr_index = build_ppr_index(
-    #     edge_index=remapped_edge_index,
-    #     num_nodes=len(used_nodes),
-    #     alpha=0.15,
-    #     eps=1e-4,
-    #     topk=2
-    # )
-    ppr_index = build_ppr_index_monte_carlo(
+    ppr_index = build_ppr_index(
         edge_index=remapped_edge_index,
         num_nodes=len(used_nodes),
         alpha=0.15,
+        eps=1e-4,
         topk=2
     )
+    # ppr_index = build_ppr_index_monte_carlo(
+    #     edge_index=remapped_edge_index,
+    #     num_nodes=len(used_nodes),
+    #     alpha=0.15,
+    #     topk=2
+    # )
     
     # remap x to used nodes
     x_remapped = x[used_nodes]
@@ -157,37 +161,68 @@ def monte_carlo_ppr(seed, nbrs, alpha=0.15, num_walks=50, max_steps=20, topk=20)
     return sorted([(n, c / total) for n, c in count.items()], key=lambda x: -x[1])[:topk]
 
 
-def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50):
-    ppr_index = {}
-    for seed in range(num_nodes):
-        print(f"---Building PPR index for seed {seed}")
-        ppr_index[seed] = approx_ppr_push(
-            seed, edge_index, num_nodes, alpha=alpha, eps=eps, topk=topk
-        )
-    return ppr_index
+def _process_node_ppr(args):
+    seed, edge_index, num_nodes, alpha, eps, topk = args
+    return seed, approx_ppr_push(seed, edge_index, num_nodes, alpha=alpha, eps=eps, topk=topk)
 
+def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50):
+    # Convert edge_index to CPU if it's on GPU to avoid multiprocessing issues
+    edge_index = edge_index.cpu()
+    
+    # Prepare arguments for parallel processing
+    args = [(seed, edge_index, num_nodes, alpha, eps, topk) 
+            for seed in range(num_nodes)]
+    
+    # Use number of CPU cores minus 1 to leave one core free
+    n_cores = max(1, cpu_count() - 1)
+    
+    # Process nodes in parallel
+    with Pool(n_cores) as pool:
+        results = list(tqdm(
+            pool.imap(_process_node_ppr, args),
+            total=num_nodes,
+            desc="Building PPR index"
+        ))
+    
+    # Convert results to dictionary
+    return dict(results)
+
+def _process_node_monte_carlo(args):
+    seed, nbrs, alpha, num_walks, max_steps, topk = args
+    return seed, monte_carlo_ppr(seed, nbrs, alpha, num_walks, max_steps, topk)
 
 def build_ppr_index_monte_carlo(edge_index, num_nodes, alpha=0.15, topk=50):
     print(f"Using Monte Carlo PPR for {num_nodes} nodes...")
 
-    # Step 1: Build adjacency list
+    # Step 1: Build adjacency list - optimize with numpy for faster processing
     nbrs = [[] for _ in range(num_nodes)]
-    src, dst = edge_index
-    for u, v in zip(src.tolist(), dst.tolist()):
+    src, dst = edge_index.cpu().numpy()
+    for u, v in zip(src, dst):
         nbrs[u].append(v)
         nbrs[v].append(u)
+    
+    # Convert lists to numpy arrays for faster access
+    nbrs = [np.array(nbr_list) for nbr_list in nbrs]
 
-    # Step 2: Build PPR index only for used nodes
-    ppr_index = {}
-    for seed in range(num_nodes):
-        ppr_index[seed] = monte_carlo_ppr(
-            seed, nbrs, alpha=alpha, num_walks=20, max_steps=20, topk=topk
-        )
+    # Prepare arguments for parallel processing
+    args = [(seed, nbrs, alpha, 20, 20, topk) 
+            for seed in range(num_nodes)]
+    
+    # Use number of CPU cores minus 1
+    n_cores = max(1, cpu_count() - 1)
+    
+    # Process nodes in parallel
+    with Pool(n_cores) as pool:
+        results = list(tqdm(
+            pool.imap(_process_node_monte_carlo, args),
+            total=num_nodes,
+            desc="Building Monte Carlo PPR index"
+        ))
+    
+    return dict(results)
 
-    return ppr_index
-
-# 3) “Register” new aggregation under the name “FrequencyAggregation”
-#    so that PyG’s resolver can find it when we pass 'frequency' in PNAConv.
+# 3) "Register" new aggregation under the name "FrequencyAggregation"
+#    so that PyG's resolver can find it when we pass 'frequency' in PNAConv.
 pyg_aggr.TopKPPRAggregation = TopKPPRAggregation
 
 
