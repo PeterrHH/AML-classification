@@ -25,7 +25,7 @@ class TopKPPRAggregation(Aggregation):
                 dim_size: int = None,
                 dim: int = 0) -> Tensor:
         
-        print(f"TopKPPRAggregation: x shape {x.shape}, index shape {index.shape}, dim_size {dim_size}, dim {dim}")
+        #print(f"TopKPPRAggregation: x shape {x.shape}, index shape {index.shape}, dim_size {dim_size}, dim {dim}")
         # print(f"Gloabl x {self.global_x.shape}, x shape {x.shape} self ppr {len(self.ppr_index)}")
         X = x
         self.global_x = x
@@ -54,7 +54,7 @@ class TopKPPRAggregation(Aggregation):
             # .sum(dim=0) will sum over k, resulting in shape [T,F]
             out[u,:] = (feats * wts.unsqueeze(2)).sum(dim=0) 
             
-        print('out shape of TopKPPRAggregation: ', out.shape)
+        #print('out shape of TopKPPRAggregation: ', out.shape)
         return out
 
 
@@ -141,19 +141,19 @@ def build_split_ppr(edge_index, x):
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
     
-    # ppr_index = build_ppr_index(
-    #     edge_index=remapped_edge_index,
-    #     num_nodes=len(used_nodes),
-    #     alpha=0.15,
-    #     eps=1e-4,
-    #     topk=2
-    # )
-    ppr_index = build_ppr_index_monte_carlo(
+    ppr_index = build_ppr_index(
         edge_index=remapped_edge_index,
         num_nodes=len(used_nodes),
         alpha=0.15,
+        eps=1e-4,
         topk=2
     )
+    # ppr_index = build_ppr_index_monte_carlo(
+    #     edge_index=remapped_edge_index,
+    #     num_nodes=len(used_nodes),
+    #     alpha=0.15,
+    #     topk=2
+    # )
     
     # remap x to used nodes
     x_remapped = x[used_nodes]

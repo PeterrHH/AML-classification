@@ -170,7 +170,7 @@ class PNA(torch.nn.Module):
 
        
         # Preprocess the input x with the PPR aggregation
-        x = x + self.ppr_w * aggr_emb
+        # x = (x + self.ppr_w * aggr_emb)/(1+self.ppr_w)
         # Storing x in the global aggregator storage for easier access
         for conv, bn in zip(self.convs, self.batch_norms):
             for aggr in conv.aggr_module.aggr.aggrs:
@@ -178,7 +178,10 @@ class PNA(torch.nn.Module):
                     aggr.global_x = x 
 
         for i in range(self.num_gnn_layers):
-            x = (x + F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))) / 2
+            conv_out = F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))
+            p = self.ppr_aggr(conv_out.unsqueeze(1)).squeeze(1)  
+            conv_out = (conv_out + self.ppr_w * p)/(1+self.ppr_w)
+            x = (x + conv_out) / 2
             if self.edge_updates: 
                 edge_attr = edge_attr + self.emlps[i](torch.cat([x[src], x[dst], edge_attr], dim=-1)) / 2
 

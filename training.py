@@ -17,7 +17,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
     best_val_f1 = 0
     best_val_accuracy = 0
     best_te_f1 = 0
-    patience = 20                     
+    patience = 80                     
     epochs_since_improvement = 0     
     best_model = None
     best_model_epoch = 0
@@ -48,7 +48,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
             # 1) Build a global→local map:
             g2l = { int(g): i for i, g in enumerate(batch.n_id) }
             x0  = model.node_emb(batch.x)
-            print(f"SETTING GLOBAL X")
+
             for conv in model.convs:
                 for aggr in conv.aggr_module.aggr.aggrs:
                     if isinstance(aggr, TopKPPRAggregation):
