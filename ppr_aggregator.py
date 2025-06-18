@@ -124,19 +124,19 @@ def build_split_ppr(edge_index, x):
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
     
-    ppr_index = build_ppr_index(
-        edge_index=remapped_edge_index,
-        num_nodes=len(used_nodes),
-        alpha=0.15,
-        eps=1e-4,
-        topk=2
-    )
-    # ppr_index = build_ppr_index_monte_carlo(
+    # ppr_index = build_ppr_index(
     #     edge_index=remapped_edge_index,
     #     num_nodes=len(used_nodes),
     #     alpha=0.15,
+    #     eps=1e-4,
     #     topk=2
     # )
+    ppr_index = build_ppr_index_monte_carlo(
+        edge_index=remapped_edge_index,
+        num_nodes=len(used_nodes),
+        alpha=0.15,
+        topk=2
+    )
     
     # remap x to used nodes
     x_remapped = x[used_nodes]
@@ -153,7 +153,7 @@ def monte_carlo_ppr(seed, nbrs, alpha=0.15, num_walks=50, max_steps=20, topk=20)
             if random.random() < alpha:
                 break
             neighbors = nbrs[node]
-            if not neighbors:
+            if len(neighbors) == 0:
                 break
             node = random.choice(neighbors)
         count[node] += 1
