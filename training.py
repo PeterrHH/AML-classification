@@ -95,7 +95,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
             wandb.log({"best_val_f1": val_f1}, step=epoch)
             wandb.log({"best_val_f1": te_f1}, step=epoch)
             best_model = model
-        if val_f1 > best_val_f1 and val_f1 > 0.3:
+        if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             wandb.log({"best_val_f1": val_f1}, step=epoch)
             logging.info(f'Epoch: {epoch} Best Val f1: {val_f1:.4f}!!!')
@@ -108,7 +108,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
         else:
             epochs_since_improvement += 1                   
             
-        if te_f1 > best_te_f1 and te_f1 > 0.3:
+        if te_f1 > best_te_f1:
             best_te_f1 = te_f1
             wandb.log({"best_te_f1": te_f1}, step=epoch)
             logging.info(f'Epoch {epoch} Best Test f1: {te_f1:.4f}!!!')
