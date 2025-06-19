@@ -57,7 +57,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
 
 
             out = model(batch.x, batch.edge_index, batch.edge_attr)
-            print(f"Got an output from PNA of shape: {out.shape}")
+
             pred = out[mask]
             ground_truth = batch.y[mask]
             preds.append(pred.argmax(dim=-1))
@@ -69,7 +69,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
 
             total_loss += float(loss) * pred.numel()
             total_examples += pred.numel()
-            print(f"--------------Finish 1 call above loss: {total_loss}----------------")
+
         loss = total_loss / total_examples if total_examples > 0 else 0
         pred = torch.cat(preds, dim=0).detach().cpu().numpy()
         ground_truth = torch.cat(ground_truths, dim=0).detach().cpu().numpy()
