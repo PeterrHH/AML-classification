@@ -29,7 +29,7 @@ def save_filtered_days(input_csv, output_csv, days_to_keep):
 if __name__ == "__main__":
     # Adjust the input and output paths as necessary
     save_filtered_days(
-        input_csv="../formatted_transactions.csv",
-        output_csv="../formatted_transactions_small.csv",
+        input_csv="./data/formatted_transactions.csv",
+        output_csv="./data/formatted_transactions_small.csv",
         days_to_keep=[3, 4, 5]
     )

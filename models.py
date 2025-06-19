@@ -1,3 +1,5 @@
+from ppr_aggregator import TopKPPRAggregation
+from torch_geometric.nn.aggr import MeanAggregation, MinAggregation, MaxAggregation, StdAggregation
 import torch.nn as nn
 from torch_geometric.nn import GINEConv, BatchNorm, Linear, GATConv, PNAConv, RGCNConv
 import torch.nn.functional as F
@@ -106,7 +108,8 @@ class GATe(torch.nn.Module):
 class PNA(torch.nn.Module):
     def __init__(self, num_features, num_gnn_layers, n_classes=2, 
                 n_hidden=100, edge_updates=True,
-                edge_dim=None, dropout=0.0, final_dropout=0.5, deg=None):
+                edge_dim=None, dropout=0.0, final_dropout=0.5, deg=None, 
+                ppr_index: dict[int, list[tuple[int,float]]] = None):
         super().__init__()
         n_hidden = int((n_hidden // 5) * 5)
         self.n_hidden = n_hidden
@@ -114,20 +117,36 @@ class PNA(torch.nn.Module):
         self.edge_updates = edge_updates
         self.final_dropout = final_dropout
 
-        aggregators = ['mean', 'min', 'max', 'std']
-        scalers = ['identity', 'amplification', 'attenuation']
+        if ppr_index is None:
+            raise ValueError("PNA requires a ppr_index when you include 'pprTopKPPRAggregation' in aggregators")
+        aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
 
+        # aggregators = ['mean', 'min', 'max', 'std', 'TopKPPRAggregation']
+        ppr_agg = TopKPPRAggregation(ppr_index)
+
+        # 2) mix it in with the built-in ones
+        aggregators = [
+            MeanAggregation(), 
+            MinAggregation(), 
+            MaxAggregation(), 
+            StdAggregation(), 
+            ppr_agg,
+        ]
+        scalers = ['identity', 'amplification', 'attenuation']
+        
         self.node_emb = nn.Linear(num_features, n_hidden)
         self.edge_emb = nn.Linear(edge_dim, n_hidden)
 
         self.convs = nn.ModuleList()
         self.emlps = nn.ModuleList()
         self.batch_norms = nn.ModuleList()
+
         for _ in range(self.num_gnn_layers):
             conv = PNAConv(in_channels=n_hidden, out_channels=n_hidden,
                            aggregators=aggregators, scalers=scalers, deg=deg,
                            edge_dim=n_hidden, towers=5, pre_layers=1, post_layers=1,
-                           divide_input=False)
+                           divide_input=False,
+                           aggr_kwargs = aggr_kwargs)
             if self.edge_updates: self.emlps.append(nn.Sequential(
                 nn.Linear(3 * self.n_hidden, self.n_hidden),
                 nn.ReLU(),

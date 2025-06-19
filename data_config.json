@@ -5,12 +5,11 @@
       "model_to_save": "/path/to/model_save_location (where you want to store the model you are going to train)"
     },
     "wandb": {
-      "api_key": "ce5676f856caf561584c75f8175f6967876f1c77",
+      "api_key": "e03c7f9987c50047db3f679ea7924d62f547be42",
       "project_name": "project_name",
-      "entity": "ML_Graph",
+      "entity": "pyarmolenka-tu-delft",
       "name": "experiment_name"
     },
-
     "features": {
       "edge_features": ["Timestamp", "Sent Currency", "Received Currency", "Payment Format"],
       "full_edge_feat_for_referece": ["Timestamp","Amount Sent", "Sent Currency", "Amount Received", "Received Currency", "Payment Format"]

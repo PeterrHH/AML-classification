@@ -59,12 +59,21 @@ def time_deltas(data, adj_edges_list):
 
 class GraphData(Data):
     '''This is the homogenous graph object we use for GNN training if reverse MP is not enabled'''
+    def __setattr__(self, key, value):
+        if key == 'ppr_index':
+            # write it to the real instance dict
+            object.__setattr__(self, key, value)
+        else:
+            # fall back to Data’s machinery
+            super().__setattr__(key, value)
+
     def __init__(
         self, x: OptTensor = None, edge_index: OptTensor = None, edge_attr: OptTensor = None, y: OptTensor = None, pos: OptTensor = None, 
         readout: str = 'edge', 
         num_nodes: int = None,
         timestamps: OptTensor = None,
         node_timestamps: OptTensor = None,
+        ppr_index: dict = None,
         **kwargs
         ):
         super().__init__(x, edge_index, edge_attr, y, pos, **kwargs)
@@ -78,6 +87,10 @@ class GraphData(Data):
             self.timestamps = edge_attr[:,0].clone()
         else:
             self.timestamps = None
+       
+        if ppr_index is None:
+            raise ValueError("You must pass ppr_index into GraphData")
+        self.ppr_index = ppr_index
 
     def add_ports(self):
         '''Adds port numberings to the edge features'''
