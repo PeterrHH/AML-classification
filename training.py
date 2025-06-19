@@ -22,10 +22,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
     best_model = None
     best_model_epoch = 0
     
-    if args.run_local:
-        logging.warning("Running in local mode: test set is re-used from validation set.")
-        te_loader = val_loader
-        te_inds = val_inds
+
 
     logging.info(f"Number of batches in training loader: {len(tr_loader)}")
     for epoch in range(config.epochs):
