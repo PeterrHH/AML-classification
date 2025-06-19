@@ -17,15 +17,12 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
     best_val_f1 = 0
     best_val_accuracy = 0
     best_te_f1 = 0
-    patience = 80                     
+    patience = 40                     
     epochs_since_improvement = 0     
     best_model = None
     best_model_epoch = 0
     
-    if args.run_local:
-        logging.warning("Running in local mode: test set is re-used from validation set.")
-        te_loader = val_loader
-        te_inds = val_inds
+
 
     logging.info(f"Number of batches in training loader: {len(tr_loader)}")
     for epoch in range(config.epochs):
@@ -57,7 +54,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
 
             
             out = model(batch.x, batch.edge_index, batch.edge_attr)
-            print(f"Got an output from PNA of shape: {out.shape}")
+
             pred = out[mask]
             ground_truth = batch.y[mask]
             preds.append(pred.argmax(dim=-1))
@@ -69,7 +66,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
 
             total_loss += float(loss) * pred.numel()
             total_examples += pred.numel()
-            print(f"--------------Finish 1 call above loss: {total_loss}----------------")
+
         loss = total_loss / total_examples if total_examples > 0 else 0
         pred = torch.cat(preds, dim=0).detach().cpu().numpy()
         ground_truth = torch.cat(ground_truths, dim=0).detach().cpu().numpy()
@@ -110,7 +107,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
             wandb.log({"best_val_f1": val_f1}, step=epoch)
             wandb.log({"best_val_f1": te_f1}, step=epoch)
             best_model = model
-        if val_f1 > best_val_f1 and val_f1 > 0.3:
+        if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             wandb.log({"best_val_f1": val_f1}, step=epoch)
             logging.info(f'Epoch: {epoch} Best Val f1: {val_f1:.4f}!!!')
@@ -123,7 +120,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
         else:
             epochs_since_improvement += 1                   
             
-        if te_f1 > best_te_f1 and te_f1 > 0.3:
+        if te_f1 > best_te_f1:
             best_te_f1 = te_f1
             wandb.log({"best_te_f1": te_f1}, step=epoch)
             logging.info(f'Epoch {epoch} Best Test f1: {te_f1:.4f}!!!')
@@ -242,7 +239,7 @@ def get_model(sample_batch, config, args, tr_data):
             num_features=n_feats, num_gnn_layers=config.n_gnn_layers, n_classes=2,
             n_hidden=round(config.n_hidden), edge_updates=args.emlps, edge_dim=e_dim,
             dropout=config.dropout, deg=deg, final_dropout=config.final_dropout,
-            ppr_index=tr_data.ppr_index, use_ppr = args.use_ppr
+            ppr_index=tr_data.ppr_index, use_ppr=args.use_ppr,
             )
     elif config.model == "rgcn":
         model = RGCN(

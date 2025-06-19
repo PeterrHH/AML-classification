@@ -157,8 +157,15 @@ def build_split_ppr(edge_index, x):
         edge_index=remapped_edge_index,
         num_nodes=len(used_nodes),
         alpha=0.15,
+        eps=1e-4,
         topk=2
     )
+    # ppr_index = build_ppr_index_monte_carlo(
+    #     edge_index=remapped_edge_index,
+    #     num_nodes=len(used_nodes),
+    #     alpha=0.15,
+    #     topk=2
+    # )
     
     # remap x to used nodes
     x_remapped = x[used_nodes]
