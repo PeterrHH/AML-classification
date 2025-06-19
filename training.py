@@ -241,7 +241,7 @@ def get_model(sample_batch, config, args, tr_data):
             num_features=n_feats, num_gnn_layers=config.n_gnn_layers, n_classes=2,
             n_hidden=round(config.n_hidden), edge_updates=args.emlps, edge_dim=e_dim,
             dropout=config.dropout, deg=deg, final_dropout=config.final_dropout,
-            ppr_index=tr_data.ppr_index
+            ppr_index=tr_data.ppr_index, use_ppr=args.use_ppr,
             )
     elif config.model == "rgcn":
         model = RGCN(
