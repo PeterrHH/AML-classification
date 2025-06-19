@@ -17,7 +17,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
     best_val_f1 = 0
     best_val_accuracy = 0
     best_te_f1 = 0
-    patience = 80                     
+    patience = 40                     
     epochs_since_improvement = 0     
     best_model = None
     best_model_epoch = 0
