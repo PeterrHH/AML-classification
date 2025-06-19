@@ -5,6 +5,7 @@ import torch_geometric.nn.aggr as pyg_aggr
 import heapq
 from collections import defaultdict
 import random
+import tqdm
 
 
 class TopKPPRAggregation(Aggregation):
@@ -70,7 +71,7 @@ def approx_ppr_push(seed: int,
 
     Args:
       seed    : int, the node whose PPR we want.
-      edge_index: [2, E] LongTensor of your graph’s edges (undirected or directed).
+      edge_index: [2, E] LongTensor of your graph's edges (undirected or directed).
       num_nodes : int, number of nodes N.
       alpha   : teleport probability (≈0.15).
       eps     : tolerance threshold.
@@ -141,19 +142,19 @@ def build_split_ppr(edge_index, x):
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
     
-    # ppr_index = build_ppr_index(
-    #     edge_index=remapped_edge_index,
-    #     num_nodes=len(used_nodes),
-    #     alpha=0.15,
-    #     eps=1e-4,
-    #     topk=2
-    # )
-    ppr_index = build_ppr_index_monte_carlo(
+    ppr_index = build_ppr_index(
         edge_index=remapped_edge_index,
         num_nodes=len(used_nodes),
         alpha=0.15,
+        eps=1e-4,
         topk=2
     )
+    # ppr_index = build_ppr_index_monte_carlo(
+    #     edge_index=remapped_edge_index,
+    #     num_nodes=len(used_nodes),
+    #     alpha=0.15,
+    #     topk=2
+    # )
     
     # remap x to used nodes
     x_remapped = x[used_nodes]
@@ -178,13 +179,48 @@ def monte_carlo_ppr(seed, nbrs, alpha=0.15, num_walks=50, max_steps=20, topk=20)
     return sorted([(n, c / total) for n, c in count.items()], key=lambda x: -x[1])[:topk]
 
 
-def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50):
+def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50, max_iter=20):
+    """
+    Compute PPR for all nodes using power iteration (tensor-based).
+    Returns a dict: node -> list of (neighbor, score) for topk neighbors.
+    """
+    device = edge_index.device if hasattr(edge_index, 'device') else 'cpu'
+    # Build adjacency matrix (sparse)
+    src, dst = edge_index
+    values = torch.ones(src.size(0), device=device)
+    adj = torch.sparse_coo_tensor(
+        torch.stack([src, dst]), values, (num_nodes, num_nodes), device=device
+    )
+    # Make undirected (if not already)
+    adj = adj.coalesce()
+    adj_t = torch.sparse_coo_tensor(
+        torch.stack([dst, src]), values, (num_nodes, num_nodes), device=device
+    )
+    adj_t = adj_t.coalesce()
+    adj = torch.sparse_coo_tensor(
+        torch.cat([adj.indices(), adj_t.indices()], dim=1),
+        torch.cat([adj.values(), adj_t.values()]),
+        (num_nodes, num_nodes), device=device
+    ).coalesce()
+    # Row-normalize adjacency to get transition matrix
+    deg = torch.sparse.sum(adj, dim=1).to_dense()  # [N]
+    deg_inv = torch.where(deg > 0, 1.0 / deg, torch.zeros_like(deg))
+    # For each node, run power iteration
     ppr_index = {}
-    for seed in range(num_nodes):
-        print(f"---Building PPR index for seed {seed}")
-        ppr_index[seed] = approx_ppr_push(
-            seed, edge_index, num_nodes, alpha=alpha, eps=eps, topk=topk
-        )
+    for seed in tqdm.tqdm(range(num_nodes), desc="Building PPR index (tensor)"):
+        # Personalization vector
+        e = torch.zeros(num_nodes, device=device)
+        e[seed] = 1.0
+        p = e.clone()
+        for _ in range(max_iter):
+            p_last = p
+            # p = alpha * e + (1 - alpha) * A^T p / deg
+            p = alpha * e + (1 - alpha) * torch.sparse.mm(adj, (p * deg_inv).unsqueeze(1)).squeeze(1)
+            if torch.norm(p - p_last, p=1) < eps:
+                break
+        # Get top-k
+        vals, idxs = torch.topk(p, k=min(topk, num_nodes))
+        ppr_index[seed] = [(i.item(), v.item()) for i, v in zip(idxs, vals) if v.item() > 0]
     return ppr_index
 
 
@@ -207,8 +243,6 @@ def build_ppr_index_monte_carlo(edge_index, num_nodes, alpha=0.15, topk=50):
 
     return ppr_index
 
-# 3) “Register” new aggregation under the name TopKPPRAggregation
-#    so that PyG’s resolver can find it when we pass 'TopKPPRAggregation' in PNAConv.
+# 3) "Register" new aggregation under the name TopKPPRAggregation
+#    so that PyG's resolver can find it when we pass 'TopKPPRAggregation' in PNAConv.
 pyg_aggr.TopKPPRAggregation = TopKPPRAggregation
-
-
