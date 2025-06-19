@@ -55,7 +55,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
                         aggr.global_x = x0
                         aggr.g2l      = g2l
 
-
+            
             out = model(batch.x, batch.edge_index, batch.edge_attr)
             print(f"Got an output from PNA of shape: {out.shape}")
             pred = out[mask]
@@ -165,14 +165,15 @@ def train_hetero(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, m
             batch.to(device)
 
             # 1) Build a global→local map:
-            g2l = { int(g): i for i, g in enumerate(batch.n_id) }
-            x0  = model.node_emb(batch.x)
+            if args.model == "pna":
+                g2l = { int(g): i for i, g in enumerate(batch.n_id) }
+                x0  = model.node_emb(batch.x)
 
-            for conv in model.convs:
-                for aggr in conv.aggr_module.aggr.aggrs:
-                    if isinstance(aggr, TopKPPRAggregation):
-                        aggr.global_x = x0
-                        aggr.g2l      = g2l
+                for conv in model.convs:
+                    for aggr in conv.aggr_module.aggr.aggrs:
+                        if isinstance(aggr, TopKPPRAggregation):
+                            aggr.global_x = x0
+                            aggr.g2l      = g2l
 
             out = model(batch.x_dict, batch.edge_index_dict, batch.edge_attr_dict)
             out = out[('node', 'to', 'node')]
@@ -241,7 +242,7 @@ def get_model(sample_batch, config, args, tr_data):
             num_features=n_feats, num_gnn_layers=config.n_gnn_layers, n_classes=2,
             n_hidden=round(config.n_hidden), edge_updates=args.emlps, edge_dim=e_dim,
             dropout=config.dropout, deg=deg, final_dropout=config.final_dropout,
-            ppr_index=tr_data.ppr_index
+            ppr_index=tr_data.ppr_index, use_ppr = args.use_ppr
             )
     elif config.model == "rgcn":
         model = RGCN(

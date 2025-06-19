@@ -1,4 +1,4 @@
-from ppr_aggregator import TopKPPRAggregation
+from ppr_aggregator import TopKPPRAggregation, APPRPropagation
 from torch_geometric.nn.aggr import MeanAggregation, MinAggregation, MaxAggregation, StdAggregation
 import torch.nn as nn
 from torch_geometric.nn import GINEConv, BatchNorm, Linear, GATConv, PNAConv, RGCNConv
@@ -109,14 +109,16 @@ class PNA(torch.nn.Module):
     def __init__(self, num_features, num_gnn_layers, n_classes=2, 
                 n_hidden=100, edge_updates=True,
                 edge_dim=None, dropout=0.0, final_dropout=0.5, deg=None, 
-                ppr_index: dict[int, list[tuple[int,float]]] = None):
+                ppr_index: dict[int, list[tuple[int,float]]] = None, use_ppr:str = None):
         super().__init__()
         n_hidden = int((n_hidden // 5) * 5)
         self.n_hidden = n_hidden
         self.num_gnn_layers = num_gnn_layers
         self.edge_updates = edge_updates
         self.final_dropout = final_dropout
+        self.use_ppr = use_ppr
 
+        self.appnp = APPRPropagation(alpha=0.1, K=10)
         if ppr_index is None:
             raise ValueError("PNA requires a ppr_index when you include 'TopKPPRAggregation' in aggregators")
         aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
@@ -179,8 +181,12 @@ class PNA(torch.nn.Module):
 
         for i in range(self.num_gnn_layers):
             conv_out = F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))
-            p = self.ppr_aggr(conv_out.unsqueeze(1)).squeeze(1)  
-            conv_out = (conv_out + self.ppr_w * p)/(1+self.ppr_w)
+            if self.use_ppr == "topk":
+                p = self.ppr_aggr(conv_out.unsqueeze(1)).squeeze(1)  
+                conv_out = (conv_out + self.ppr_w * p)/(1+self.ppr_w)
+            elif self.use_ppr == "appr":
+                p = self.appnp(x, edge_index, edge_attr.shape[0])
+                conv_out = (conv_out + self.ppr_w * p)/(1+self.ppr_w)
             x = (x + conv_out) / 2
             if self.edge_updates: 
                 edge_attr = edge_attr + self.emlps[i](torch.cat([x[src], x[dst], edge_attr], dim=-1)) / 2

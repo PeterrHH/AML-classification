@@ -47,6 +47,7 @@ def create_parser():
     parser.add_argument("--finetune", action='store_true', help="Fine-tune a model. Note that args.unique_name needs to point to the pre-trained model.")
     parser.add_argument("--inference", action='store_true', help="Load a trained model and only do AML inference with it. args.unique name needs to point to the trained model.")
     parser.add_argument("--run_local", action='store_true', help="Run the script locally. This only makes model extract 20 row of data.")
+    parser.add_argument("--use_ppr", default=None, type=str, help="Use PPR for aggregation. Needs to be one of [topk, appr].")
     return parser
 
 def set_seed(seed: int = 0) -> None:
