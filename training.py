@@ -1,6 +1,7 @@
 import torch
 import tqdm
 from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+from ppr_aggregator import TopKPPRAggregation
 from train_util import AddEgoIds, extract_param, add_arange_ids, get_loaders, evaluate_homo, evaluate_hetero, save_model, load_model
 from models import GINe, PNA, GATe, RGCN
 from xgboost import XGBClassifier
@@ -16,7 +17,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
     best_val_f1 = 0
     best_val_accuracy = 0
     best_te_f1 = 0
-    patience = 20                     
+    patience = 80                     
     epochs_since_improvement = 0     
     best_model = None
     best_model_epoch = 0
@@ -26,7 +27,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
         te_loader = val_loader
         te_inds = val_inds
 
-
+    logging.info(f"Number of batches in training loader: {len(tr_loader)}")
     for epoch in range(config.epochs):
         total_loss = total_examples = 0
         preds = []
@@ -43,7 +44,20 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
             batch.edge_attr = batch.edge_attr[:, 1:]
 
             batch.to(device)
+
+            # 1) Build a global→local map:
+            g2l = { int(g): i for i, g in enumerate(batch.n_id) }
+            x0  = model.node_emb(batch.x)
+
+            for conv in model.convs:
+                for aggr in conv.aggr_module.aggr.aggrs:
+                    if isinstance(aggr, TopKPPRAggregation):
+                        aggr.global_x = x0
+                        aggr.g2l      = g2l
+
+
             out = model(batch.x, batch.edge_index, batch.edge_attr)
+            print(f"Got an output from PNA of shape: {out.shape}")
             pred = out[mask]
             ground_truth = batch.y[mask]
             preds.append(pred.argmax(dim=-1))
@@ -55,6 +69,7 @@ def train_homo(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, mod
 
             total_loss += float(loss) * pred.numel()
             total_examples += pred.numel()
+            print(f"--------------Finish 1 call above loss: {total_loss}----------------")
         loss = total_loss / total_examples if total_examples > 0 else 0
         pred = torch.cat(preds, dim=0).detach().cpu().numpy()
         ground_truth = torch.cat(ground_truths, dim=0).detach().cpu().numpy()
@@ -131,16 +146,34 @@ def train_hetero(tr_loader, val_loader, te_loader, tr_inds, val_inds, te_inds, m
         for batch in tqdm.tqdm(tr_loader, disable=not args.tqdm):
             optimizer.zero_grad()
             #select the seed edges from which the batch was created
-            inds = tr_inds.detach().cpu()
-            batch_edge_inds = inds[batch['node', 'to', 'node'].input_id.detach().cpu()]
-            batch_edge_ids = tr_loader.data['node', 'to', 'node'].edge_attr.detach().cpu()[batch_edge_inds, 0]
-            mask = torch.isin(batch['node', 'to', 'node'].edge_attr[:, 0].detach().cpu(), batch_edge_ids)
+
+            # inds = tr_inds.detach().cpu()
+            # batch_edge_inds = inds[batch['node', 'to', 'node'].input_id.detach().cpu()]
+            # batch_edge_ids = tr_loader.data['node', 'to', 'node'].edge_attr.detach().cpu()[batch_edge_inds, 0]
+            # mask = torch.isin(batch['node', 'to', 'node'].edge_attr[:, 0].detach().cpu(), batch_edge_ids)
+
+            # OPTMIZED FOR GPU
+            inds = tr_inds
+            batch_edge_inds = inds[batch.input_id]
+            batch_edge_ids = tr_loader.data.edge_attr[batch_edge_inds, 0].to(device)
+            mask = torch.isin(batch.edge_attr[:, 0], batch_edge_ids)
             
             #remove the unique edge id from the edge features, as it's no longer needed
             batch['node', 'to', 'node'].edge_attr = batch['node', 'to', 'node'].edge_attr[:, 1:]
             batch['node', 'rev_to', 'node'].edge_attr = batch['node', 'rev_to', 'node'].edge_attr[:, 1:]
 
             batch.to(device)
+
+            # 1) Build a global→local map:
+            g2l = { int(g): i for i, g in enumerate(batch.n_id) }
+            x0  = model.node_emb(batch.x)
+
+            for conv in model.convs:
+                for aggr in conv.aggr_module.aggr.aggrs:
+                    if isinstance(aggr, TopKPPRAggregation):
+                        aggr.global_x = x0
+                        aggr.g2l      = g2l
+
             out = model(batch.x_dict, batch.edge_index_dict, batch.edge_attr_dict)
             out = out[('node', 'to', 'node')]
             pred = out[mask]
@@ -208,7 +241,7 @@ def get_model(sample_batch, config, args, tr_data):
             num_features=n_feats, num_gnn_layers=config.n_gnn_layers, n_classes=2,
             n_hidden=round(config.n_hidden), edge_updates=args.emlps, edge_dim=e_dim,
             dropout=config.dropout, deg=deg, final_dropout=config.final_dropout,
-            ppr_index=tr_data.ppr_index
+            ppr_index=tr_data.ppr_index, use_ppr=args.use_ppr,
             )
     elif config.model == "rgcn":
         model = RGCN(

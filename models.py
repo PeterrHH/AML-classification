@@ -109,20 +109,22 @@ class PNA(torch.nn.Module):
     def __init__(self, num_features, num_gnn_layers, n_classes=2, 
                 n_hidden=100, edge_updates=True,
                 edge_dim=None, dropout=0.0, final_dropout=0.5, deg=None, 
-                ppr_index: dict[int, list[tuple[int,float]]] = None):
+                ppr_index: dict[int, list[tuple[int,float]]] = None, use_ppr = None):
         super().__init__()
         n_hidden = int((n_hidden // 5) * 5)
         self.n_hidden = n_hidden
         self.num_gnn_layers = num_gnn_layers
         self.edge_updates = edge_updates
         self.final_dropout = final_dropout
-
-        if ppr_index is None:
-            raise ValueError("PNA requires a ppr_index when you include 'pprTopKPPRAggregation' in aggregators")
-        aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
+        self.use_ppr = use_ppr
+        aggr_kwargs = None
+        if self.use_ppr:
+            if ppr_index is None:
+                raise ValueError("PNA requires a ppr_index when you include 'TopKPPRAggregation' in aggregators")
+                aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
 
         # aggregators = ['mean', 'min', 'max', 'std', 'TopKPPRAggregation']
-        ppr_agg = TopKPPRAggregation(ppr_index)
+        # ppr_agg = TopKPPRAggregation(ppr_index)
 
         # 2) mix it in with the built-in ones
         aggregators = [
@@ -130,7 +132,7 @@ class PNA(torch.nn.Module):
             MinAggregation(), 
             MaxAggregation(), 
             StdAggregation(), 
-            ppr_agg,
+            # TopKPPRAggregation(ppr_index),
         ]
         scalers = ['identity', 'amplification', 'attenuation']
         
@@ -142,11 +144,17 @@ class PNA(torch.nn.Module):
         self.batch_norms = nn.ModuleList()
 
         for _ in range(self.num_gnn_layers):
-            conv = PNAConv(in_channels=n_hidden, out_channels=n_hidden,
-                           aggregators=aggregators, scalers=scalers, deg=deg,
-                           edge_dim=n_hidden, towers=5, pre_layers=1, post_layers=1,
-                           divide_input=False,
-                           aggr_kwargs = aggr_kwargs)
+            if self.use_ppr:
+                conv = PNAConv(in_channels=n_hidden, out_channels=n_hidden,
+                            aggregators=aggregators, scalers=scalers, deg=deg,
+                            edge_dim=n_hidden, towers=5, pre_layers=1, post_layers=1,
+                            divide_input=False,
+                            aggr_kwargs = aggr_kwargs)
+            else: 
+                conv = PNAConv(in_channels=n_hidden, out_channels=n_hidden,
+                            aggregators=aggregators, scalers=scalers, deg=deg,
+                            edge_dim=n_hidden, towers=5, pre_layers=1, post_layers=1,
+                            divide_input=False)
             if self.edge_updates: self.emlps.append(nn.Sequential(
                 nn.Linear(3 * self.n_hidden, self.n_hidden),
                 nn.ReLU(),
@@ -157,6 +165,9 @@ class PNA(torch.nn.Module):
 
         self.mlp = nn.Sequential(Linear(n_hidden*3, 50), nn.ReLU(), nn.Dropout(self.final_dropout),Linear(50, 25), nn.ReLU(), nn.Dropout(self.final_dropout),
                               Linear(25, n_classes))
+        if self.use_ppr:
+            self.ppr_aggr = TopKPPRAggregation(ppr_index)
+            self.ppr_w     = nn.Parameter(torch.tensor(1.0))
 
     def forward(self, x, edge_index, edge_attr):
         src, dst = edge_index
@@ -164,8 +175,23 @@ class PNA(torch.nn.Module):
         x = self.node_emb(x)
         edge_attr = self.edge_emb(edge_attr)
 
+
+       
+        # Preprocess the input x with the PPR aggregation
+        # x = (x + self.ppr_w * aggr_emb)/(1+self.ppr_w)
+        # Storing x in the global aggregator storage for easier access
+        if self.use_ppr:
+            for conv, bn in zip(self.convs, self.batch_norms):
+                for aggr in conv.aggr_module.aggr.aggrs:
+                    if isinstance(aggr, TopKPPRAggregation):
+                        aggr.global_x = x 
+
         for i in range(self.num_gnn_layers):
-            x = (x + F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))) / 2
+            conv_out = F.relu(self.batch_norms[i](self.convs[i](x, edge_index, edge_attr)))
+            if self.use_ppr:
+                p = self.ppr_aggr(conv_out.unsqueeze(1)).squeeze(1)  
+                conv_out = (conv_out + self.ppr_w * p)/(1+self.ppr_w)
+            x = (x + conv_out) / 2
             if self.edge_updates: 
                 edge_attr = edge_attr + self.emlps[i](torch.cat([x[src], x[dst], edge_attr], dim=-1)) / 2
 
@@ -175,6 +201,7 @@ class PNA(torch.nn.Module):
         x = torch.cat((x, edge_attr.view(-1, edge_attr.shape[1])), 1)
         logging.debug(f"x.shape = {x.shape}")
         out = x
+
         return self.mlp(out)
     
 class RGCN(nn.Module):
