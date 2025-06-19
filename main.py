@@ -1,7 +1,7 @@
 import time
 import logging
 from util import create_parser, set_seed, logger_setup
-from data_loading import get_data, get_data_xgboost, get_data_by_day
+from data_loading import get_data, get_data_xgboost
 from training import train_gnn, train_xgboost
 from inference import infer_gnn
 import json
