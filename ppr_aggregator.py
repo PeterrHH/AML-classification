@@ -179,7 +179,7 @@ def monte_carlo_ppr(seed, nbrs, alpha=0.15, num_walks=50, max_steps=20, topk=20)
     return sorted([(n, c / total) for n, c in count.items()], key=lambda x: -x[1])[:topk]
 
 
-def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50, max_iter=100):
+def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50, max_iter=20):
     """
     Compute PPR for all nodes using power iteration (tensor-based).
     Returns a dict: node -> list of (neighbor, score) for topk neighbors.
@@ -205,7 +205,6 @@ def build_ppr_index(edge_index, num_nodes, alpha=0.15, eps=1e-4, topk=50, max_it
     # Row-normalize adjacency to get transition matrix
     deg = torch.sparse.sum(adj, dim=1).to_dense()  # [N]
     deg_inv = torch.where(deg > 0, 1.0 / deg, torch.zeros_like(deg))
-    D_inv = deg_inv.unsqueeze(1)  # [N,1]
     # For each node, run power iteration
     ppr_index = {}
     for seed in tqdm.tqdm(range(num_nodes), desc="Building PPR index (tensor)"):
