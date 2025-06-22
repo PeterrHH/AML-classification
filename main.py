@@ -22,8 +22,6 @@ def main():
     #get data
     logging.info("Retrieving data")
     t1 = time.perf_counter()
-
-    # get_data_by_day(args, data_config)
     
     if args.model == "xgboost":
         X_train, y_train, X_val, y_val, X_test, y_test = get_data_xgboost(args, data_config)
@@ -32,9 +30,6 @@ def main():
             tr_data, val_data, te_data, tr_inds, val_inds, te_inds = get_data(args, data_config,run_local=True)
         else:
             tr_data, val_data, te_data, tr_inds, val_inds, te_inds = get_data(args, data_config, run_local=False)
-
-
-    # get_data_local(args, data_config)
 
     t2 = time.perf_counter()
     logging.info(f"Retrieved data in {t2-t1:.2f}s")

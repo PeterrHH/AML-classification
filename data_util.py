@@ -88,8 +88,6 @@ class GraphData(Data):
         else:
             self.timestamps = None
        
-        # if ppr_index is None:
-        #     raise ValueError("You must pass ppr_index into GraphData")
         self.ppr_index = ppr_index
 
     def add_ports(self):

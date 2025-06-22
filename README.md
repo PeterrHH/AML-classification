@@ -72,6 +72,12 @@ To switch between PPR and PPR-Monte-Carlo, go to build_split_ppr function in *pp
 
 **Note**: PPR is only integrated with PNA at the moment.
 
+
+## Results and Various Runs 
+
+All runs performed during training, validation and testing can be found in the team's [Wandb workplace](https://wandb.ai/pyarmolenka-tu-delft/project_name/workspace?nw=nwuserpyarmolenka).
+
+
 ## Licence
 Apache License
 Version 2.0, January 2004

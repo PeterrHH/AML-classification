@@ -123,16 +123,11 @@ class PNA(torch.nn.Module):
                 raise ValueError("PNA requires a ppr_index when you include 'TopKPPRAggregation' in aggregators")
                 aggr_kwargs = {'TopKPPRAggregation': {'ppr_index': ppr_index}}
 
-        # aggregators = ['mean', 'min', 'max', 'std', 'TopKPPRAggregation']
-        # ppr_agg = TopKPPRAggregation(ppr_index)
-
-        # 2) mix it in with the built-in ones
         aggregators = [
             MeanAggregation(), 
             MinAggregation(), 
             MaxAggregation(), 
-            StdAggregation(), 
-            # TopKPPRAggregation(ppr_index),
+            StdAggregation() 
         ]
         scalers = ['identity', 'amplification', 'attenuation']
         
@@ -175,10 +170,6 @@ class PNA(torch.nn.Module):
         x = self.node_emb(x)
         edge_attr = self.edge_emb(edge_attr)
 
-
-       
-        # Preprocess the input x with the PPR aggregation
-        # x = (x + self.ppr_w * aggr_emb)/(1+self.ppr_w)
         # Storing x in the global aggregator storage for easier access
         if self.use_ppr:
             for conv, bn in zip(self.convs, self.batch_norms):

@@ -54,7 +54,6 @@ def get_data(args, data_config, run_local=False):
     logging.info(f"Number of nodes (holdings doing transcations) = {df_nodes.shape[0]}")
     logging.info(f"Number of transactions = {df_edges.shape[0]}")
 
-    # edge_features = ['Timestamp', 'Amount Received', 'Received Currency', 'Payment Format']
     edge_features = data_config['features']['edge_features']
     node_features = ['Feature']
 
@@ -132,9 +131,6 @@ def get_data(args, data_config, run_local=False):
     logging.info(f"--- Test: Node Feature {te_x.shape} Edge Attr: {te_edge_attr.shape} Edge Feature Shape: {te_edge_attr.shape} Y: {te_y.shape}")
     logging.info(tr_x)
 
-    # visualise(tr_edge_index)
-    # logging.info(f"Total train samples: {tr_inds.shape[0] / y.shape[0] * 100 :.2f}% || IR: "
-    #         f"{y[tr_inds].float().mean() * 100 :.2f}% || Train days: {split[0][:5]}")
     if args.use_ppr:
         tr_ppr, tr_x_remap, tr_edge_index_remap, tr_nodes = build_split_ppr(tr_edge_index, x)
         logging.info(f"Built split ppr for train, tr_ppr {len(tr_ppr)}")
