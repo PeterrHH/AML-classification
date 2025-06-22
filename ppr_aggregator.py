@@ -142,6 +142,9 @@ def build_split_ppr(edge_index, x):
     remapped_dst = torch.tensor([id_map[n.item()] for n in edge_index[1]])
     remapped_edge_index = torch.stack([remapped_src, remapped_dst])
     
+    '''
+    Switch Monte Carlo or Build PPR Index here
+    '''
     # ppr_index = build_ppr_index(
     #     edge_index=remapped_edge_index,
     #     num_nodes=len(used_nodes),

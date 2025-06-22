@@ -61,6 +61,17 @@ There are several arguments that can be set for additional functionality. Here's
 
 </div>
 
+## Runing of Experiment PPR
+THe way to run is similar to what mention above but to run with ppr.
+```
+python main.py --data <path_to_dataset_folder> --model pna --use_ppr ppr
+```
+Add a **--run_local** flag to run the small data we generated. We have pushed this small data in the data folder in the repo.
+
+To switch between PPR and PPR-Monte-Carlo, go to build_split_ppr function in *ppr_aggregator.py* file line between line 148-162. You can uncomment one and comment out the other to choose which version to run.
+
+**Note**: PPR is only integrated with PNA at the moment.
+
 ## Licence
 Apache License
 Version 2.0, January 2004

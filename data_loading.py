@@ -190,7 +190,10 @@ def get_data(args, data_config, run_local=False):
 def get_data_xgboost(args, data_config):
     logging.info('Loading tabular data for XGBoost')
 
-    transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions.csv"
+    if args.run_local:
+        transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions_small.csv" #replace this with your path to the respective AML data objects
+    else:
+        transaction_file = f"{data_config['paths']['aml_data']}/{args.data}/formatted_transactions.csv" #replace this with your path to the respective AML data objects
     df_edges = pd.read_csv(transaction_file)
 
     logging.info(f'Available Edge Features: {df_edges.columns.tolist()}')
